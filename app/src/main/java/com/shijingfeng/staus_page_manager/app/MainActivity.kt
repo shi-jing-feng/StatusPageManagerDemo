@@ -1,8 +1,11 @@
 package com.shijingfeng.staus_page_manager.app
 
+import android.animation.ObjectAnimator
+import android.annotation.SuppressLint
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
+import android.widget.TextView
 import com.shijingfeng.status_page_manager.StatusPageManager
 import com.shijingfeng.status_page_manager.listener.OnStatusPageStatusListener
 import com.shijingfeng.status_page_manager.status_page.StatusPage
@@ -18,8 +21,12 @@ class MainActivity : AppCompatActivity() {
         initData()
     }
 
+    @SuppressLint("SetTextI18n")
     private fun initData() {
         val statusPageManager = StatusPageManager.Builder(this)
+            .setEnterAnimator(R.animator.animator_dialog_enter)
+            .setExitAnimator(R.animator.animator_dialog_exit)
+            .setDefaultStatusPage(LoadingStatusPage::class.java)
             .setOnReloadListener { statusPage ->
                 Log.e("测试", "onReloadListener ${statusPage::class.java.simpleName}")
             }
@@ -42,9 +49,9 @@ class MainActivity : AppCompatActivity() {
                  * @param statusPage 状态页
                  * @param data 数据
                  */
-                override fun onAttach(statusPage: StatusPage, data: Bundle?) {
-                    super.onAttach(statusPage, data)
-                    Log.e("测试", "onAttach ${statusPage::class.java.simpleName}")
+                override fun onShow(statusPage: StatusPage, data: Bundle?) {
+                    super.onShow(statusPage, data)
+                    Log.e("测试", "onShow ${statusPage::class.java.simpleName}")
                 }
 
                 /**
@@ -52,21 +59,51 @@ class MainActivity : AppCompatActivity() {
                  *
                  * @param statusPage 状态页
                  */
-                override fun onDetach(statusPage: StatusPage) {
-                    super.onDetach(statusPage)
-                    Log.e("测试", "onDetach ${statusPage::class.java.simpleName}")
+                override fun onHide(statusPage: StatusPage) {
+                    super.onHide(statusPage)
+                    Log.e("测试", "onHide ${statusPage::class.java.simpleName}")
                 }
 
             })
-            .setDefaultStatusPage(LoadingStatusPage::class.java)
+            .setDataConvertor { bundle ->
+                val type = bundle.getInt("type")
+
+                when (type) {
+                    1 -> EmptyStatusPage::class.java
+                    2 -> LoadingStatusPage::class.java
+                    else -> null
+                }
+            }
             .build()
 
+        // 测试 showStatusPageWithData
         ThreadUtil.runOnUiThread(5000L) {
-            statusPageManager.showStatusPage(EmptyStatusPage::class.java)
+            statusPageManager.showStatusPageWithData(Bundle().apply {
+                putInt("type", 1)
+            })
             ThreadUtil.runOnUiThread(5000L) {
-                statusPageManager.showSuccess()
+                statusPageManager.showStatusPageWithData(Bundle().apply {
+                    putInt("type", 2)
+                })
+                ThreadUtil.runOnUiThread(5000L) {
+                    statusPageManager.showStatusPageWithData(Bundle())
+                }
             }
         }
+
+        // 测试 showStatusPage
+//        ThreadUtil.runOnUiThread(5000L) {
+//            statusPageManager.showStatusPage(EmptyStatusPage::class.java)
+//            ThreadUtil.runOnUiThread(5000L) {
+//                val currentStatusPage = statusPageManager.currentStatusPage
+//                val tvText = currentStatusPage?.view?.findViewById<TextView>(R.id.tv_text)
+//
+//                tvText?.text = "no data"
+//                ThreadUtil.runOnUiThread(5000L) {
+//                    statusPageManager.showSuccess()
+//                }
+//            }
+//        }
     }
 
 }

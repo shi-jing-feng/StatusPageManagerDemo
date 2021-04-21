@@ -3,6 +3,7 @@ package com.shijingfeng.status_page_manager.listener;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.shijingfeng.status_page_manager.status_page.StatusPage;
 
@@ -20,9 +21,9 @@ public interface DataConvertor {
      * 转换回调
      *
      * @param data 要转换的数据
-     * @return 转换后的状态页Class对象
+     * @return 转换后的状态页Class对象 (如果为null, 则没有状态页，显示内容页)
      */
-    @NonNull
+    @Nullable
     Class<? extends StatusPage> convert(@NonNull Bundle data);
 
 }

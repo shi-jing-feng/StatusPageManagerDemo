@@ -25,18 +25,18 @@ public interface OnStatusPageStatusListener {
     default void onInit(@NonNull StatusPage statusPage, @Nullable Bundle data) {}
 
     /**
-     * 状态页被绑定时回调 (当前状态页会被显示)
+     * 状态页显示回调 (当前状态页会被显示)
      *
      * @param statusPage 状态页
      * @param data 数据
      */
-    default void onAttach(@NonNull StatusPage statusPage, @Nullable Bundle data) {}
+    default void onShow(@NonNull StatusPage statusPage, @Nullable Bundle data) {}
 
     /**
      * 状态页被解绑时回调 (当前状态页会被隐藏)
      *
      * @param statusPage 状态页
      */
-    default void onDetach(@NonNull StatusPage statusPage) {}
+    default void onHide(@NonNull StatusPage statusPage) {}
 
 }
