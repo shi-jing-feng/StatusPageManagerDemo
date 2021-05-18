@@ -1,7 +1,5 @@
 package com.shijingfeng.status_page_manager.listener;
 
-import android.os.Bundle;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -22,7 +20,7 @@ public interface OnStatusPageStatusListener {
      * @param statusPage 状态页
      * @param data 数据
      */
-    default void onInit(@NonNull StatusPage statusPage, @Nullable Bundle data) {}
+    default void onInit(@NonNull StatusPage statusPage, @Nullable Object data) {}
 
     /**
      * 状态页显示回调 (当前状态页会被显示)
@@ -30,7 +28,15 @@ public interface OnStatusPageStatusListener {
      * @param statusPage 状态页
      * @param data 数据
      */
-    default void onShow(@NonNull StatusPage statusPage, @Nullable Bundle data) {}
+    default void onShow(@NonNull StatusPage statusPage, @Nullable Object data) {}
+
+    /**
+     * 状态页更新数据回调 (当前状态页已经显示, 只是更新数据)
+     *
+     * @param statusPage 状态页
+     * @param data 数据
+     */
+    default void onUpdateData(@NonNull StatusPage statusPage, @Nullable Object data) {}
 
     /**
      * 状态页被解绑时回调 (当前状态页会被隐藏)

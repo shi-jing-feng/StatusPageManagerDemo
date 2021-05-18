@@ -5,7 +5,6 @@ import android.animation.AnimatorInflater;
 import android.animation.AnimatorListenerAdapter;
 import android.content.Context;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -15,16 +14,16 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.shijingfeng.status_page_manager.listener.DataConvertor;
-import com.shijingfeng.status_page_manager.listener.OnReloadListener;
+import com.shijingfeng.status_page_manager.listener.OnStatusPageClickListener;
 import com.shijingfeng.status_page_manager.listener.OnStatusPageStatusListener;
 import com.shijingfeng.status_page_manager.status_page.StatusPage;
 import com.shijingfeng.status_page_manager.target.ITargetContext;
+import com.shijingfeng.status_page_manager.util.EventListenerUtil;
 import com.shijingfeng.status_page_manager.util.StatusPageManagerUtil;
 import com.shijingfeng.status_page_manager.util.ThreadUtil;
 import com.shijingfeng.status_page_manager.view.StatusPageContainer;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -54,7 +53,9 @@ public class StatusPageManager {
 
     public StatusPageManager(@NonNull Builder builder) {
         this.mBuilder = builder;
-        showStatusPage(mBuilder.defaultStatusPage);
+        if (mBuilder.defaultStatusPage != null) {
+            showStatusPage(mBuilder.defaultStatusPage);
+        }
     }
 
     /**
@@ -81,7 +82,7 @@ public class StatusPageManager {
      * @return StatusPageManager
      */
     @AnyThread
-    public StatusPageManager showStatusPage(@NonNull Class<? extends StatusPage> statusPageClass, @Nullable Bundle data) {
+    public StatusPageManager showStatusPage(@NonNull Class<? extends StatusPage> statusPageClass, @Nullable Object data) {
         if (ThreadUtil.isMainThread()) {
             showStatusPageInMainThread(statusPageClass, data);
         } else {
@@ -145,10 +146,22 @@ public class StatusPageManager {
      * @param statusPageClass 要显示的状态页Class对象
      * @param data 状态页View数据
      */
-    private void showStatusPageInMainThread(@NonNull Class<? extends StatusPage> statusPageClass, @Nullable Bundle data) {
-        if (mIsExitOperating || mIsEnterOperating || mCurStatusPageClass == statusPageClass) {
+    private void showStatusPageInMainThread(@NonNull Class<? extends StatusPage> statusPageClass, @Nullable Object data) {
+        if (mIsExitOperating || mIsEnterOperating) {
             // 隐藏状态页动画进行中 或 显示状态页动画进行中 禁止操作
-            // 当前状态页已显示，则禁止操作
+            return;
+        }
+        if (mCurStatusPageClass == statusPageClass) {
+            // 当前状态页已显示，只更新数据
+            final OnStatusPageStatusListener statusPageStatusListener = mBuilder.onStatusPageStatusListener;
+            final StatusPage statusPage = getStatusPage(statusPageClass);
+
+            if (statusPage != null) {
+                statusPage.onUpdateData(data);
+                if (statusPageStatusListener != null) {
+                    statusPageStatusListener.onUpdateData(statusPage, data);
+                }
+            }
             return;
         }
 
@@ -160,6 +173,74 @@ public class StatusPageManager {
         }
         // 显示当前状态页
         showStatusPageInternal(statusPageClass, data);
+    }
+
+    /**
+     * 显示状态页
+     *
+     * @param statusPageClass 要显示的状态页Class对象
+     * @param data 数据
+     */
+    private void showStatusPageInternal(@NonNull Class<? extends StatusPage> statusPageClass, @Nullable Object data) {
+        // 设置显示状态页中
+        mIsEnterOperating = true;
+
+        final StatusPage statusPage = getStatusPage(statusPageClass);
+        final Context context = mBuilder.context;
+        final StatusPageContainer statusPageContainer = mBuilder.statusPageContainer;
+        final Animator enterAnimator = mBuilder.enterAnimator;
+        final OnStatusPageClickListener onStatusPageClickListener = mBuilder.onStatusPageClickListener;
+        final OnStatusPageStatusListener statusPageStatusListener = mBuilder.onStatusPageStatusListener;
+
+        if (!statusPage.isInitialized()) {
+            // 状态页初始化回调 (状态页懒加载，用到时才初始化)
+            statusPage.init(context, data);
+            if (statusPageStatusListener != null) {
+                statusPageStatusListener.onInit(statusPage, data);
+            }
+            assert statusPage.getView() != null;
+            // 设置状态页点击回调
+            EventListenerUtil.setOnClickListener(statusPage.getView(), v -> {
+                if (onStatusPageClickListener != null) {
+                    onStatusPageClickListener.onClick(statusPage);
+                }
+            });
+        }
+        statusPageContainer.addView(statusPage.getView(), new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        if (enterAnimator != null) {
+            enterAnimator.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    super.onAnimationEnd(animation);
+                    // 必须移除当前监听器，否则会多次回调(不移除会有多个监听器)
+                    enterAnimator.removeListener(this);
+
+                    // 状态页被绑定回调 (显示状态页回调)
+                    statusPage.onShow(data);
+                    if (statusPageStatusListener != null) {
+                        statusPageStatusListener.onShow(statusPage, data);
+                    }
+                    // 设置当前显示的状态页Class对象
+                    mCurStatusPageClass = statusPageClass;
+                    // 显示状态页已完成
+                    mIsEnterOperating = false;
+                }
+            });
+            // 设置动画目标View
+            enterAnimator.setTarget(statusPage.getView());
+            // 状态页退出动画
+            enterAnimator.start();
+        } else {
+            // 状态页被绑定回调 (显示状态页回调)
+            statusPage.onShow(data);
+            if (statusPageStatusListener != null) {
+                statusPageStatusListener.onShow(statusPage, data);
+            }
+            // 设置当前显示的状态页Class对象
+            mCurStatusPageClass = statusPageClass;
+            // 显示状态页已完成
+            mIsEnterOperating = false;
+        }
     }
 
     /**
@@ -183,13 +264,15 @@ public class StatusPageManager {
                     exitAnimator.removeListener(this);
 
                     // 前一个状态页被解绑回调 (隐藏状态页回调)
-                    statusPage.onDetach();
+                    statusPage.onHide();
                     if (statusPageStatusListener != null) {
                         statusPageStatusListener.onHide(statusPage);
                     }
                     if (statusPageContainer.getChildCount() > 1) {
                         statusPageContainer.removeViewAt(STATUS_PAGE_INDEX);
                     }
+                    // 清空当前显示的状态页Class对象
+                    mCurStatusPageClass = null;
                     // 隐藏状态页已完成
                     mIsExitOperating = false;
                 }
@@ -200,82 +283,17 @@ public class StatusPageManager {
             exitAnimator.start();
         } else {
             // 前一个状态页被解绑回调 (隐藏状态页回调)
-            statusPage.onDetach();
+            statusPage.onHide();
             if (statusPageStatusListener != null) {
                 statusPageStatusListener.onHide(statusPage);
             }
             if (statusPageContainer.getChildCount() > 1) {
                 statusPageContainer.removeViewAt(STATUS_PAGE_INDEX);
             }
+            // 清空当前显示的状态页Class对象
+            mCurStatusPageClass = null;
             // 隐藏状态页已完成
             mIsExitOperating = false;
-        }
-    }
-
-    /**
-     * 显示状态页
-     *
-     * @param statusPageClass 要显示的状态页Class对象
-     * @param data 数据
-     */
-    private void showStatusPageInternal(@NonNull Class<? extends StatusPage> statusPageClass, @Nullable Bundle data) {
-        final StatusPage statusPage = getStatusPage(statusPageClass);
-        final Context context = mBuilder.context;
-        final StatusPageContainer statusPageContainer = mBuilder.statusPageContainer;
-        final Animator enterAnimator = mBuilder.enterAnimator;
-        final OnReloadListener onReloadListener = mBuilder.onReloadListener;
-        final OnStatusPageStatusListener statusPageStatusListener = mBuilder.onStatusPageStatusListener;
-
-        // 设置显示状态页中
-        mIsEnterOperating = true;
-        if (!statusPage.isInitialized()) {
-            // 状态页初始化回调 (状态页懒加载，用到时才初始化)
-            statusPage.init(context, data);
-            if (statusPageStatusListener != null) {
-                statusPageStatusListener.onInit(statusPage, data);
-            }
-            assert statusPage.getView() != null;
-            // 设置状态页点击回调
-            statusPage.getView().setOnClickListener(v -> {
-                if (onReloadListener != null) {
-                    onReloadListener.onReload(statusPage);
-                }
-            });
-        }
-        statusPageContainer.addView(statusPage.getView(), new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        if (enterAnimator != null) {
-            enterAnimator.addListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animation) {
-                    super.onAnimationEnd(animation);
-                    // 必须移除当前监听器，否则会多次回调(不移除会有多个监听器)
-                    enterAnimator.removeListener(this);
-
-                    // 状态页被绑定回调 (显示状态页回调)
-                    statusPage.onAttach(data);
-                    if (statusPageStatusListener != null) {
-                        statusPageStatusListener.onShow(statusPage, data);
-                    }
-                    // 设置当前显示的状态页Class对象
-                    mCurStatusPageClass = statusPageClass;
-                    // 显示状态页已完成
-                    mIsEnterOperating = false;
-                }
-            });
-            // 设置动画目标View
-            enterAnimator.setTarget(statusPage.getView());
-            // 状态页退出动画
-            enterAnimator.start();
-        } else {
-            // 状态页被绑定回调 (显示状态页回调)
-            statusPage.onAttach(data);
-            if (statusPageStatusListener != null) {
-                statusPageStatusListener.onShow(statusPage, data);
-            }
-            // 设置当前显示的状态页Class对象
-            mCurStatusPageClass = statusPageClass;
-            // 显示状态页已完成
-            mIsEnterOperating = false;
         }
     }
 
@@ -318,7 +336,7 @@ public class StatusPageManager {
         /** 默认状态页 */
         private Class<? extends StatusPage> defaultStatusPage;
         /** 重新加载监听器 */
-        private OnReloadListener onReloadListener;
+        private OnStatusPageClickListener onStatusPageClickListener;
         /** 状态页状态监听器 */
         private OnStatusPageStatusListener onStatusPageStatusListener;
         /** 数据转换器 */
@@ -391,13 +409,13 @@ public class StatusPageManager {
         }
 
         /**
-         * 设置重新加载监听器
+         * 设置状态页点击监听器
          *
          * @param listener 重新加载监听器
          * @return Builder
          */
-        public Builder setOnReloadListener(@NonNull OnReloadListener listener) {
-            this.onReloadListener = listener;
+        public Builder setOnStatusPageClickListener(@Nullable OnStatusPageClickListener listener) {
+            this.onStatusPageClickListener = listener;
             return this;
         }
 
@@ -407,7 +425,7 @@ public class StatusPageManager {
          * @param listener 状态页状态监听器
          * @return Builder
          */
-        public Builder setOnStatusPageStatusListener(@NonNull OnStatusPageStatusListener listener) {
+        public Builder setOnStatusPageStatusListener(@Nullable OnStatusPageStatusListener listener) {
             this.onStatusPageStatusListener = listener;
             return this;
         }
@@ -418,7 +436,7 @@ public class StatusPageManager {
          * @param convertor 数据转换器
          * @return Builder
          */
-        public Builder setDataConvertor(@NonNull DataConvertor convertor) {
+        public Builder setDataConvertor(@Nullable DataConvertor convertor) {
             this.dataConvertor = convertor;
             return this;
         }

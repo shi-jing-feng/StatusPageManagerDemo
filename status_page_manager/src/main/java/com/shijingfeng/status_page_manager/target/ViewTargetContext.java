@@ -41,22 +41,35 @@ public class ViewTargetContext implements ITargetContext {
         }
 
         final ViewGroup parentViewGroup = (ViewGroup) parent;
-        final StatusPageContainer statusPageContainer = new StatusPageContainer(mView.getContext());
-        final ViewGroup.LayoutParams layoutParams = mView.getLayoutParams();
-        final int parentChildCount = parentViewGroup.getChildCount();
-        int contentViewIndex = 0;
+        final StatusPageContainer statusPageContainer;
 
-        for (int i = 0; i < parentChildCount; ++i) {
-            final View parentChild = parentViewGroup.getChildAt(i);
+        if (parentViewGroup instanceof StatusPageContainer) {
+            statusPageContainer = (StatusPageContainer) parentViewGroup;
 
-            if (parentChild == mView) {
-                contentViewIndex = i;
-                parentViewGroup.removeViewAt(i);
-                break;
+            final int childCount = statusPageContainer.getChildCount();
+
+            if (childCount > 1) {
+                throw new RuntimeException("StatusPageContainer只能有一个子内容View");
             }
+        } else {
+            statusPageContainer = new StatusPageContainer(mView.getContext());
+
+            final ViewGroup.LayoutParams layoutParams = mView.getLayoutParams();
+            final int parentChildCount = parentViewGroup.getChildCount();
+            int contentViewIndex = 0;
+
+            for (int i = 0; i < parentChildCount; ++i) {
+                final View parentChild = parentViewGroup.getChildAt(i);
+
+                if (parentChild == mView) {
+                    contentViewIndex = i;
+                    parentViewGroup.removeViewAt(i);
+                    break;
+                }
+            }
+            statusPageContainer.addView(mView, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            parentViewGroup.addView(statusPageContainer, contentViewIndex, layoutParams);
         }
-        statusPageContainer.addView(mView, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        parentViewGroup.addView(statusPageContainer, contentViewIndex, layoutParams);
         return statusPageContainer;
     }
 

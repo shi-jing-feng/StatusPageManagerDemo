@@ -12,13 +12,13 @@ import com.shijingfeng.status_page_manager.status_page.StatusPage;
  * @author ShiJingFeng
  */
 @FunctionalInterface
-public interface OnReloadListener {
+public interface OnStatusPageClickListener {
 
     /**
      * 重新加载
      *
      * @param statusPage 当前状态页
      */
-    void onReload(@NonNull StatusPage statusPage);
+    void onClick(@NonNull StatusPage statusPage);
 
 }

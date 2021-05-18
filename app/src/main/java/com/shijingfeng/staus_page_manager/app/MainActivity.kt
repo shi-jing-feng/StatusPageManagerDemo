@@ -1,11 +1,9 @@
 package com.shijingfeng.staus_page_manager.app
 
-import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
-import android.widget.TextView
 import com.shijingfeng.status_page_manager.StatusPageManager
 import com.shijingfeng.status_page_manager.listener.OnStatusPageStatusListener
 import com.shijingfeng.status_page_manager.status_page.StatusPage
@@ -24,10 +22,10 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetTextI18n")
     private fun initData() {
         val statusPageManager = StatusPageManager.Builder(this)
-            .setEnterAnimator(R.animator.animator_dialog_enter)
-            .setExitAnimator(R.animator.animator_dialog_exit)
-            .setDefaultStatusPage(LoadingStatusPage::class.java)
-            .setOnReloadListener { statusPage ->
+//            .setEnterAnimator(R.animator.animator_dialog_enter)
+//            .setExitAnimator(R.animator.animator_dialog_exit)
+            .setDefaultStatusPage(EmptyStatusPage::class.java)
+            .setOnStatusPageClickListener { statusPage ->
                 Log.e("测试", "onReloadListener ${statusPage::class.java.simpleName}")
             }
             .setOnStatusPageStatusListener(object : OnStatusPageStatusListener {
@@ -38,7 +36,7 @@ class MainActivity : AppCompatActivity() {
                  * @param statusPage 状态页
                  * @param data 数据
                  */
-                override fun onInit(statusPage: StatusPage, data: Bundle?) {
+                override fun onInit(statusPage: StatusPage, data: Any?) {
                     super.onInit(statusPage, data)
                     Log.e("测试", "onInit ${statusPage::class.java.simpleName}")
                 }
@@ -49,9 +47,20 @@ class MainActivity : AppCompatActivity() {
                  * @param statusPage 状态页
                  * @param data 数据
                  */
-                override fun onShow(statusPage: StatusPage, data: Bundle?) {
+                override fun onShow(statusPage: StatusPage, data: Any?) {
                     super.onShow(statusPage, data)
                     Log.e("测试", "onShow ${statusPage::class.java.simpleName}")
+                }
+
+                /**
+                 * 状态页更新数据回调 (当前状态页已经显示, 只是更新数据)
+                 *
+                 * @param statusPage 状态页
+                 * @param data 数据
+                 */
+                override fun onUpdateData(statusPage: StatusPage, data: Any?) {
+                    super.onUpdateData(statusPage, data)
+                    Log.e("测试", "onUpdateData ${statusPage::class.java.simpleName}   数据: " + (if (data == null) "null" else data as String))
                 }
 
                 /**
@@ -76,20 +85,24 @@ class MainActivity : AppCompatActivity() {
             }
             .build()
 
-        // 测试 showStatusPageWithData
         ThreadUtil.runOnUiThread(5000L) {
-            statusPageManager.showStatusPageWithData(Bundle().apply {
-                putInt("type", 1)
-            })
-            ThreadUtil.runOnUiThread(5000L) {
-                statusPageManager.showStatusPageWithData(Bundle().apply {
-                    putInt("type", 2)
-                })
-                ThreadUtil.runOnUiThread(5000L) {
-                    statusPageManager.showStatusPageWithData(Bundle())
-                }
-            }
+            statusPageManager.showStatusPage(EmptyStatusPage::class.java, "no data啊")
         }
+
+        // 测试 showStatusPageWithData
+//        ThreadUtil.runOnUiThread(5000L) {
+//            statusPageManager.showStatusPageWithData(Bundle().apply {
+//                putInt("type", 1)
+//            })
+//            ThreadUtil.runOnUiThread(5000L) {
+//                statusPageManager.showStatusPageWithData(Bundle().apply {
+//                    putInt("type", 2)
+//                })
+//                ThreadUtil.runOnUiThread(5000L) {
+//                    statusPageManager.showStatusPageWithData(Bundle())
+//                }
+//            }
+//        }
 
         // 测试 showStatusPage
 //        ThreadUtil.runOnUiThread(5000L) {

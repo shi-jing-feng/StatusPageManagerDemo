@@ -29,7 +29,7 @@ public abstract class StatusPage {
      * @param context Context
      * @param data 数据
      */
-    public final void init(@NonNull Context context, @Nullable Bundle data) {
+    public final void init(@NonNull Context context, @Nullable Object data) {
         if (isInitialized()) {
             return;
         }
@@ -53,19 +53,26 @@ public abstract class StatusPage {
      *
      * @param data 数据
      */
-    public void onInit(@Nullable Bundle data) {}
+    public void onInit(@Nullable Object data) {}
 
     /**
-     * 状态页被绑定时回调 (当前状态页会被显示)
+     * 状态页显示回调 (当前状态页会被显示)
      *
      * @param data 数据
      */
-    public void onAttach(@Nullable Bundle data) {}
+    public void onShow(@Nullable Object data) {}
+
+    /**
+     * 状态页更新数据回调 (当前状态页已经显示, 只是更新数据)
+     *
+     * @param data 数据
+     */
+    public void onUpdateData(@Nullable Object data) {}
 
     /**
      * 状态页被解绑时回调 (当前状态页会被隐藏)
      */
-    public void onDetach() {}
+    public void onHide() {}
 
     /**
      * 是否初始化了
